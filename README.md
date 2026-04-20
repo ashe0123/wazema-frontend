@@ -1,39 +1,124 @@
-# Wazema SCBC — Next.js Frontend
+# Wazema Saving and Credit Basic Cooperative (SCBC)
 
-Optional modern React frontend for the Wazema system. The primary frontend is the vanilla HTML/CSS/JS version served directly by the Express backend at `http://localhost:3002`.
+A full-featured microfinance management system for savings, loans, and member management.
 
-## Setup
+---
 
-```bash
-cd Wazema/frontend-next
-npm install
-npm run dev   # http://localhost:3000
+## Architecture
+
+```
+Wazema/
+├── backend/              Express.js API (Node.js 20+) — port 3002
+│   ├── routes/           Auth, Members, Savings, Loans, Repayments, Settings, Uploads
+│   ├── middleware/       JWT auth, input validation, rate limiting
+│   ├── db.js             Database layer (PostgreSQL / Turso / SQLite)
+│   ├── server.js         Express server — API only, no static files
+│   └── .env              Environment configuration
+│
+└── frontend-next/        Next.js 14 frontend — port 3000
+    ├── src/app/
+    │   ├── page.tsx      Login + forgot password
+    │   ├── admin/        Admin dashboard (all sections)
+    │   └── dashboard/    Member portal (all sections)
+    ├── src/components/   Sidebar, Modal, Toast
+    ├── src/lib/api.ts    API client + formatters
+    └── next.config.js    Proxies /api/* → backend:3002
 ```
 
-The backend must be running on port 3002. All `/api/*` requests are proxied automatically via `next.config.js`.
+---
 
-## Stack
+## Quick Start
 
-- **Next.js 14** (App Router)
-- **TypeScript**
-- **CSS Variables** (no external UI library)
+### 1. Start the backend API
 
-## Pages
+```bash
+cd backend
+npm install
+node server.js
+# API running at http://localhost:3002
+```
 
-| Route | Description |
-|-------|-------------|
-| `/` | Login — member and admin tabs |
-| `/admin` | Admin dashboard |
-| `/dashboard` | Member portal |
+### 2. Start the Next.js frontend
+
+```bash
+cd frontend-next
+npm install
+npm run dev
+# Frontend running at http://localhost:3000
+```
+
+Open **http://localhost:3000** in your browser.
+
+---
+
+## Database Options
+
+The backend auto-selects the database based on `.env`:
+
+| Priority | Database | Condition |
+|----------|----------|-----------|
+| 1st | **PostgreSQL** | `DATABASE_URL` is set |
+| 2nd | **Turso** (cloud SQLite) | `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` set |
+| 3rd | **Local SQLite** | fallback (development) |
+
+Schema and seed data are created automatically on first startup.
+
+---
 
 ## Demo Credentials
 
 | Role | ID | Password |
 |------|----|----------|
 | Admin | `admin` | `admin123` |
-| Member | `WZ-001` | `1234` |
+| Member | `WZ-003` | `1234` |
+| Member | `WZ-004` | `1234` |
 
-## Notes
+---
 
-- This frontend is a work in progress. The vanilla frontend (`Wazema/frontend/`) is the fully-featured production UI.
-- For full feature documentation see [`../DOCUMENTATION.md`](../DOCUMENTATION.md).
+## Docker Deployment
+
+```bash
+# Copy and fill environment variables
+cp backend/.env.example .env
+
+# Build and start all services (PostgreSQL + API + Next.js)
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+```
+
+Services:
+- **PostgreSQL** — internal, port 5432
+- **API** — http://localhost:3002
+- **Frontend** — http://localhost:3000
+
+---
+
+## Environment Variables
+
+See `backend/.env.example` for all required variables.
+
+Key variables:
+
+| Variable | Description |
+|----------|-------------|
+| `JWT_SECRET` | Strong random secret (min 32 chars) |
+| `ADMIN_USERNAME` | Admin login username |
+| `ADMIN_PASSWORD` | Admin login password |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `CORS_ORIGIN` | Frontend URL (e.g. `http://localhost:3000`) |
+| `NEXT_PUBLIC_API_URL` | Backend URL for Next.js (e.g. `http://localhost:3002`) |
+
+---
+
+## First-Time Setup
+
+See **[SETUP.md](SETUP.md)** for the complete first-run checklist.
+
+---
+
+## API Endpoints
+
+The backend exposes a pure REST API at `http://localhost:3002/api/`.
+See **[DOCUMENTATION.md](DOCUMENTATION.md)** for the full API reference.
