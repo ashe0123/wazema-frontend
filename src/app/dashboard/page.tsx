@@ -602,8 +602,17 @@ function SavingsSection({ savings, member, totalSaved, banks, toast, onRefresh }
                     )}
                   </div>
                   {/* Receipt */}
-                  <div style={{ width: 60, textAlign: 'center' }}>
-                    {record?.receipt_url && <FileLink url={record.receipt_url} />}
+                  <div style={{ width: 100, textAlign: 'center', display: 'flex', gap: '0.3rem', justifyContent: 'center' }}>
+                    {record?.receipt_url && <FileLink url={record.receipt_url} label="📎" />}
+                    {record && ['paid', 'late'].includes(record.status) && (
+                      <button 
+                        onClick={() => window.open(`/api/receipts/saving/${record.id}`, '_blank')}
+                        style={{ background: 'none', border: '1px solid var(--border2)', borderRadius: '6px', padding: '0.2rem 0.5rem', fontSize: '0.72rem', color: 'var(--primary-light)', cursor: 'pointer' }}
+                        title="Download official receipt"
+                      >
+                        🧾 Receipt
+                      </button>
+                    )}
                   </div>
                   {/* Action */}
                   <div style={{ width: 100, textAlign: 'right' }}>
@@ -976,6 +985,18 @@ function RepaymentsSection({ activeLoan, banks, toast, onRefresh }: any) {
                 <span style={{ fontWeight: 700 }}>{fmt(r.amount)}</span>
                 {r.penalty > 0 && <span style={{ color: 'var(--danger)', fontSize: '0.75rem', marginLeft: '0.5rem' }}>+{fmt(r.penalty)} penalty</span>}
                 {isPaid && <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '2px' }}>Paid: {fmtDate(r.paid_date)}</div>}
+              </div>
+              {/* Receipt */}
+              <div style={{ width: 90, textAlign: 'center' }}>
+                {isPaid && (
+                  <button 
+                    onClick={() => window.open(`/api/receipts/repayment/${r.id}`, '_blank')}
+                    style={{ background: 'none', border: '1px solid var(--border2)', borderRadius: '6px', padding: '0.2rem 0.5rem', fontSize: '0.72rem', color: 'var(--success)', cursor: 'pointer' }}
+                    title="Download official receipt"
+                  >
+                    🧾 Receipt
+                  </button>
+                )}
               </div>
               {/* Action */}
               <div style={{ width: 110, textAlign: 'right' }}>
