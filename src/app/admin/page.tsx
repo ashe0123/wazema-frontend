@@ -47,6 +47,7 @@ function AdminDashboard() {
   const router = useRouter();
   const toast  = useToast();
   const [section, setSection] = useState('overview');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
@@ -72,9 +73,18 @@ function AdminDashboard() {
 
   return (
     <div className="app-layout">
-      <Sidebar active={section} onSelect={setSection} items={NAV} role="admin" badge={pendingCount > 0 ? pendingCount : undefined} />
+      <Sidebar 
+        active={section} 
+        onSelect={setSection} 
+        items={NAV} 
+        role="admin" 
+        badge={pendingCount > 0 ? pendingCount : undefined}
+        mobileOpen={mobileMenuOpen}
+        onMobileClose={() => setMobileMenuOpen(false)}
+      />
       <div className="main-content">
         <div className="topbar">
+          <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(true)}>☰</button>
           <span style={{ fontWeight: 700 }}>Admin Panel</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             {pendingCount > 0 && (

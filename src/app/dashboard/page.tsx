@@ -81,6 +81,7 @@ function MemberDashboard() {
   const router = useRouter();
   const toast  = useToast();
   const [section, setSection] = useState('overview');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [member, setMember]   = useState<any>(null);
   const [savings, setSavings] = useState<any[]>([]);
   const [loans, setLoans]     = useState<any[]>([]);
@@ -124,9 +125,18 @@ function MemberDashboard() {
 
   return (
     <div className="app-layout">
-      <Sidebar active={section} onSelect={setSection} items={NAV} role="member" badge={notifCount > 0 ? notifCount : undefined} />
+      <Sidebar 
+        active={section} 
+        onSelect={setSection} 
+        items={NAV} 
+        role="member" 
+        badge={notifCount > 0 ? notifCount : undefined}
+        mobileOpen={mobileMenuOpen}
+        onMobileClose={() => setMobileMenuOpen(false)}
+      />
       <div className="main-content">
         <div className="topbar">
+          <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(true)}>☰</button>
           <span style={{ fontWeight: 700 }}>{member?.name || 'Member Portal'}</span>
           <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{member?.id}</span>
         </div>
