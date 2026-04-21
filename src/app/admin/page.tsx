@@ -1319,15 +1319,65 @@ function RepaymentsSection({ toast }: { toast: any }) {
 
 // ── Reports ───────────────────────────────────────────────────────────────────
 function ReportsSection({ toast }: { toast: any }) {
+  const [activeTab, setActiveTab] = useState<'financial' | 'portfolio' | 'members' | 'cashflow' | 'comparative'>('financial');
   const [from, setFrom] = useState(new Date().getFullYear() + '-01-01');
   const [to, setTo]     = useState(new Date().toISOString().split('T')[0]);
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  
+  // New analytics states
+  const [financialSummary, setFinancialSummary] = useState<any>(null);
+  const [loanPortfolio, setLoanPortfolio] = useState<any>(null);
+  const [memberAnalytics, setMemberAnalytics] = useState<any>(null);
+  const [cashFlow, setCashFlow] = useState<any>(null);
+  const [comparative, setComparative] = useState<any>(null);
 
   async function generate() {
     setLoading(true);
     try { const d = await api.get(`/settings/financial-report?from=${from}&to=${to}`); setReport(d); }
     catch (e: any) { toast(e.message, 'danger'); } finally { setLoading(false); }
+  }
+
+  async function loadFinancialSummary() {
+    setLoading(true);
+    try {
+      const startMonth = from.slice(0, 7);
+      const endMonth = to.slice(0, 7);
+      const d = await api.get(`/reports/financial-summary?start_month=${startMonth}&end_month=${endMonth}`);
+      setFinancialSummary(d);
+    } catch (e: any) { toast(e.message, 'danger'); } finally { setLoading(false); }
+  }
+
+  async function loadLoanPortfolio() {
+    setLoading(true);
+    try {
+      const d = await api.get('/reports/loan-portfolio');
+      setLoanPortfolio(d);
+    } catch (e: any) { toast(e.message, 'danger'); } finally { setLoading(false); }
+  }
+
+  async function loadMemberAnalytics() {
+    setLoading(true);
+    try {
+      const d = await api.get('/reports/member-analytics?months=12');
+      setMemberAnalytics(d);
+    } catch (e: any) { toast(e.message, 'danger'); } finally { setLoading(false); }
+  }
+
+  async function loadCashFlow() {
+    setLoading(true);
+    try {
+      const d = await api.get('/reports/cash-flow?months=6');
+      setCashFlow(d);
+    } catch (e: any) { toast(e.message, 'danger'); } finally { setLoading(false); }
+  }
+
+  async function loadComparative() {
+    setLoading(true);
+    try {
+      const d = await api.get('/reports/comparative');
+      setComparative(d);
+    } catch (e: any) { toast(e.message, 'danger'); } finally { setLoading(false); }
   }
 
   function exportCSV(type: string) {
@@ -1343,40 +1393,455 @@ function ReportsSection({ toast }: { toast: any }) {
 
   return (
     <>
-      <div className="page-title">Financial Report</div>
-      <div className="page-sub">Date range financial overview</div>
-      <div className="card" style={{ marginBottom:'1rem' }}>
-        <div className="form-row">
-          <div className="form-group"><label>From</label><input type="date" value={from} onChange={e => setFrom(e.target.value)} /></div>
-          <div className="form-group"><label>To</label><input type="date" value={to} onChange={e => setTo(e.target.value)} /></div>
-        </div>
-        <div style={{ display:'flex', gap:'0.75rem', flexWrap:'wrap' }}>
-          <button className="btn btn-primary" onClick={generate} disabled={loading}>{loading?'Generating…':'📊 Generate'}</button>
-          {['members','savings','loans','repayments'].map(t => (
-            <button key={t} className="btn btn-ghost btn-sm" onClick={() => exportCSV(t)}>⬇️ {t}.csv</button>
-          ))}
-        </div>
+      <div className="page-title">Reports & Analytics</div>
+      <div className="page-sub">Comprehensive financial insights and performance metrics</div>
+
+      {/* Tab Navigation */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '2px solid var(--border)', paddingBottom: '0.5rem', overflowX: 'auto' }}>
+        {[
+          { id: 'financial', label: '💰 Financial Summary', icon: '💰' },
+          { id: 'portfolio', label: '🏦 Loan Portfolio', icon: '🏦' },
+          { id: 'members', label: '👥 Member Analytics', icon: '👥' },
+          { id: 'cashflow', label: '💵 Cash Flow', icon: '💵' },
+          { id: 'comparative', label: '📊 Comparative', icon: '📊' },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            style={{
+              background: activeTab === tab.id ? 'var(--primary)' : 'transparent',
+              color: activeTab === tab.id ? 'white' : 'var(--text)',
+              border: activeTab === tab.id ? '1px solid var(--primary)' : '1px solid var(--border2)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '0.5rem 1rem',
+              fontSize: '0.85rem',
+              fontWeight: activeTab === tab.id ? 700 : 400,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
-      {report && (
+
+      {/* Financial Summary Tab */}
+      {activeTab === 'financial' && (
         <>
-          <div className="kpi-grid">
-            {[['Total Savings',fmt(report.savings?.total)],['Loans Approved',report.loans?.approved_count+' loans'],['Total Repaid',fmt(report.loans?.total_repaid)],['Overdue',fmt(report.loans?.overdue)]].map(([l,v]) => (
-              <div key={l} className="kpi-card"><div className="kpi-label">{l}</div><div className="kpi-value" style={{fontSize:'1.2rem'}}>{v}</div></div>
-            ))}
-          </div>
-          <div className="card" style={{ marginTop:'1rem' }}>
-            <div style={{ fontWeight:700, marginBottom:'0.75rem' }}>Monthly Breakdown</div>
-            <div className="table-wrap">
-              <table>
-                <thead><tr><th>Month</th><th>Payments</th><th>Collected</th><th>Penalties</th></tr></thead>
-                <tbody>
-                  {(report.monthly_breakdown || []).map((m: any) => (
-                    <tr key={m.month}><td>{formatMonthLabel(m.month)}</td><td>{m.payments}</td><td>{fmt(m.collected)}</td><td>{fmt(m.penalties)}</td></tr>
-                  ))}
-                </tbody>
-              </table>
+          <div className="card" style={{ marginBottom: '1rem' }}>
+            <div className="form-row">
+              <div className="form-group"><label>Start Month</label><input type="month" value={from.slice(0, 7)} onChange={e => setFrom(e.target.value + '-01')} /></div>
+              <div className="form-group"><label>End Month</label><input type="month" value={to.slice(0, 7)} onChange={e => setTo(e.target.value + '-28')} /></div>
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <button className="btn btn-primary" onClick={loadFinancialSummary} disabled={loading}>
+                {loading ? '⏳ Loading...' : '📊 Generate Summary'}
+              </button>
+              {['members', 'savings', 'loans', 'repayments'].map(t => (
+                <button key={t} className="btn btn-ghost btn-sm" onClick={() => exportCSV(t)}>⬇️ {t}.csv</button>
+              ))}
             </div>
           </div>
+
+          {financialSummary && (
+            <>
+              {/* KPI Grid */}
+              <div className="kpi-grid" style={{ marginBottom: '1.5rem' }}>
+                {[
+                  { label: 'Total Inflows', value: fmt(financialSummary.financial_position.total_inflows), color: 'var(--success)' },
+                  { label: 'Total Outflows', value: fmt(financialSummary.financial_position.total_outflows), color: 'var(--danger)' },
+                  { label: 'Net Position', value: fmt(financialSummary.financial_position.net_position), color: financialSummary.financial_position.net_position >= 0 ? 'var(--success)' : 'var(--danger)' },
+                  { label: 'Active Members', value: financialSummary.members.active },
+                  { label: 'Savings Collected', value: fmt(financialSummary.savings.total_collected) },
+                  { label: 'Loans Disbursed', value: fmt(financialSummary.loans.total_disbursed) },
+                  { label: 'Repayments Collected', value: fmt(financialSummary.repayments.total_collected) },
+                  { label: 'Total Penalties', value: fmt(financialSummary.savings.total_penalties + financialSummary.repayments.total_penalties) },
+                ].map(k => (
+                  <div key={k.label} className="kpi-card">
+                    <div className="kpi-label">{k.label}</div>
+                    <div className="kpi-value" style={{ fontSize: '1.2rem', color: k.color }}>{k.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Detailed Breakdown */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="card">
+                  <div style={{ fontWeight: 700, marginBottom: '0.75rem', color: 'var(--success)' }}>💰 Savings Performance</div>
+                  {[
+                    ['Total Collected', fmt(financialSummary.savings.total_collected)],
+                    ['Payment Count', financialSummary.savings.payment_count],
+                    ['Unique Payers', financialSummary.savings.unique_payers],
+                    ['Penalties', fmt(financialSummary.savings.total_penalties)],
+                  ].map(([k, v]) => (
+                    <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0', borderBottom: '1px solid var(--border)', fontSize: '0.85rem' }}>
+                      <span style={{ color: 'var(--muted)' }}>{k}</span>
+                      <span style={{ fontWeight: 600 }}>{v}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="card">
+                  <div style={{ fontWeight: 700, marginBottom: '0.75rem', color: 'var(--info)' }}>🏦 Loan Performance</div>
+                  {[
+                    ['Disbursed', fmt(financialSummary.loans.total_disbursed)],
+                    ['Loan Count', financialSummary.loans.loan_count],
+                    ['Active Loans', financialSummary.loans.active_loans],
+                    ['Outstanding', fmt(financialSummary.loans.total_outstanding)],
+                  ].map(([k, v]) => (
+                    <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0', borderBottom: '1px solid var(--border)', fontSize: '0.85rem' }}>
+                      <span style={{ color: 'var(--muted)' }}>{k}</span>
+                      <span style={{ fontWeight: 600 }}>{v}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </>
+      )}
+
+      {/* Loan Portfolio Tab */}
+      {activeTab === 'portfolio' && (
+        <>
+          <div className="card" style={{ marginBottom: '1rem' }}>
+            <button className="btn btn-primary" onClick={loadLoanPortfolio} disabled={loading}>
+              {loading ? '⏳ Loading...' : '📊 Load Portfolio Analysis'}
+            </button>
+          </div>
+
+          {loanPortfolio && (
+            <>
+              {/* Risk Alert */}
+              {loanPortfolio.risk_metrics.risk_level !== 'low' && (
+                <div className={`alert alert-${loanPortfolio.risk_metrics.risk_level === 'high' ? 'danger' : 'warning'}`} style={{ marginBottom: '1.5rem' }}>
+                  <span>{loanPortfolio.risk_metrics.risk_level === 'high' ? '🔴' : '🟡'}</span>
+                  <div>
+                    <strong>Portfolio Risk: {loanPortfolio.risk_metrics.risk_level.toUpperCase()}</strong>
+                    <div style={{ fontSize: '0.82rem', marginTop: '4px' }}>
+                      {loanPortfolio.risk_metrics.loans_at_risk_count} loans at risk with PAR ratio of {loanPortfolio.risk_metrics.portfolio_at_risk_ratio}%
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* KPI Grid */}
+              <div className="kpi-grid" style={{ marginBottom: '1.5rem' }}>
+                {[
+                  { label: 'Active Loans', value: loanPortfolio.portfolio_overview.active },
+                  { label: 'Active Principal', value: fmt(loanPortfolio.portfolio_overview.active_principal) },
+                  { label: 'Avg Loan Size', value: fmt(loanPortfolio.portfolio_overview.average_loan_size) },
+                  { label: 'Collection Rate', value: loanPortfolio.repayment_performance.collection_rate + '%', color: loanPortfolio.repayment_performance.collection_rate >= 90 ? 'var(--success)' : 'var(--warning)' },
+                  { label: 'PAR Ratio', value: loanPortfolio.risk_metrics.portfolio_at_risk_ratio + '%', color: loanPortfolio.risk_metrics.portfolio_at_risk_ratio > 10 ? 'var(--danger)' : 'var(--success)' },
+                  { label: 'Overdue Payments', value: loanPortfolio.repayment_performance.overdue_count },
+                ].map(k => (
+                  <div key={k.label} className="kpi-card">
+                    <div className="kpi-label">{k.label}</div>
+                    <div className="kpi-value" style={{ fontSize: '1.2rem', color: k.color }}>{k.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Portfolio Breakdown */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="card">
+                  <div style={{ fontWeight: 700, marginBottom: '0.75rem' }}>📊 Portfolio Status</div>
+                  {[
+                    ['Pending', loanPortfolio.portfolio_overview.pending, 'badge-warning'],
+                    ['Active', loanPortfolio.portfolio_overview.active, 'badge-success'],
+                    ['Completed', loanPortfolio.portfolio_overview.completed, 'badge-info'],
+                    ['Rejected', loanPortfolio.portfolio_overview.rejected, 'badge-danger'],
+                  ].map(([status, count, badge]) => (
+                    <div key={status} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid var(--border)' }}>
+                      <span style={{ fontSize: '0.85rem' }}>{status}</span>
+                      <span className={`badge ${badge}`}>{count}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="card">
+                  <div style={{ fontWeight: 700, marginBottom: '0.75rem' }}>💵 Repayment Status</div>
+                  {[
+                    ['Paid', loanPortfolio.repayment_performance.paid_count, fmt(loanPortfolio.repayment_performance.paid_amount)],
+                    ['Due', loanPortfolio.repayment_performance.due_count, '—'],
+                    ['Overdue', loanPortfolio.repayment_performance.overdue_count, fmt(loanPortfolio.repayment_performance.overdue_amount)],
+                    ['Penalties', '—', fmt(loanPortfolio.repayment_performance.total_penalties)],
+                  ].map(([status, count, amount]) => (
+                    <div key={status} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0', borderBottom: '1px solid var(--border)', fontSize: '0.85rem' }}>
+                      <span style={{ color: 'var(--muted)' }}>{status}</span>
+                      <div style={{ display: 'flex', gap: '1rem' }}>
+                        {count !== '—' && <span style={{ fontWeight: 600 }}>{count}</span>}
+                        <span style={{ fontWeight: 600, minWidth: '80px', textAlign: 'right' }}>{amount}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </>
+      )}
+
+      {/* Member Analytics Tab */}
+      {activeTab === 'members' && (
+        <>
+          <div className="card" style={{ marginBottom: '1rem' }}>
+            <button className="btn btn-primary" onClick={loadMemberAnalytics} disabled={loading}>
+              {loading ? '⏳ Loading...' : '📊 Load Member Analytics'}
+            </button>
+          </div>
+
+          {memberAnalytics && (
+            <>
+              {/* KPI Grid */}
+              <div className="kpi-grid" style={{ marginBottom: '1.5rem' }}>
+                {[
+                  { label: 'Active Members', value: memberAnalytics.engagement.total_active_members },
+                  { label: 'Participation Rate', value: memberAnalytics.engagement.participation_rate + '%', color: memberAnalytics.engagement.participation_rate >= 80 ? 'var(--success)' : 'var(--warning)' },
+                  { label: 'Retention Rate', value: memberAnalytics.retention.retention_rate + '%', color: memberAnalytics.retention.retention_rate >= 90 ? 'var(--success)' : 'var(--warning)' },
+                  { label: 'Exited Members', value: memberAnalytics.retention.exited_members },
+                ].map(k => (
+                  <div key={k.label} className="kpi-card">
+                    <div className="kpi-label">{k.label}</div>
+                    <div className="kpi-value" style={{ fontSize: '1.2rem', color: k.color }}>{k.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Account Distribution & Top Savers */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                <div className="card">
+                  <div style={{ fontWeight: 700, marginBottom: '0.75rem' }}>📊 Account Types</div>
+                  {memberAnalytics.account_distribution.map((a: any) => (
+                    <div key={a.type} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0', borderBottom: '1px solid var(--border)', fontSize: '0.85rem' }}>
+                      <span>{a.type}</span>
+                      <div style={{ display: 'flex', gap: '1rem' }}>
+                        <span className="badge badge-info">{a.count}</span>
+                        <span style={{ fontWeight: 600 }}>{fmt(a.total_monthly_commitment)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="card">
+                  <div style={{ fontWeight: 700, marginBottom: '0.75rem' }}>🏆 Top 10 Savers</div>
+                  <div style={{ maxHeight: 250, overflowY: 'auto' }}>
+                    {memberAnalytics.top_savers.map((s: any, idx: number) => (
+                      <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0', borderBottom: '1px solid var(--border)', fontSize: '0.82rem' }}>
+                        <div>
+                          <span style={{ color: 'var(--muted)', marginRight: '0.5rem' }}>#{idx + 1}</span>
+                          <strong>{s.name}</strong>
+                          <span style={{ color: 'var(--muted)', fontSize: '0.7rem', marginLeft: '0.3rem' }}>({s.payment_count} payments)</span>
+                        </div>
+                        <span style={{ fontWeight: 600, color: 'var(--success)' }}>{fmt(s.total_saved)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Growth Trend */}
+              <div className="card">
+                <div style={{ fontWeight: 700, marginBottom: '0.75rem' }}>📈 Member Growth Trend (Last 12 Months)</div>
+                <div className="table-wrap">
+                  <table>
+                    <thead><tr><th>Month</th><th>New Members</th></tr></thead>
+                    <tbody>
+                      {memberAnalytics.growth_trend.map((g: any) => (
+                        <tr key={g.month}>
+                          <td>{formatMonthLabel(g.month)}</td>
+                          <td><span className="badge badge-success">{g.new_members}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+        </>
+      )}
+
+      {/* Cash Flow Tab */}
+      {activeTab === 'cashflow' && (
+        <>
+          <div className="card" style={{ marginBottom: '1rem' }}>
+            <button className="btn btn-primary" onClick={loadCashFlow} disabled={loading}>
+              {loading ? '⏳ Loading...' : '📊 Load Cash Flow Analysis'}
+            </button>
+          </div>
+
+          {cashFlow && (
+            <>
+              {/* Summary KPIs */}
+              <div className="kpi-grid" style={{ marginBottom: '1.5rem' }}>
+                {[
+                  { label: 'Total Inflows', value: fmt(cashFlow.summary.total_inflows), color: 'var(--success)' },
+                  { label: 'Total Outflows', value: fmt(cashFlow.summary.total_outflows), color: 'var(--danger)' },
+                  { label: 'Net Position', value: fmt(cashFlow.summary.net_position), color: cashFlow.summary.net_position >= 0 ? 'var(--success)' : 'var(--danger)' },
+                ].map(k => (
+                  <div key={k.label} className="kpi-card">
+                    <div className="kpi-label">{k.label}</div>
+                    <div className="kpi-value" style={{ fontSize: '1.2rem', color: k.color }}>{k.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Monthly Cash Flow Table */}
+              <div className="card">
+                <div style={{ fontWeight: 700, marginBottom: '0.75rem' }}>💵 Monthly Cash Flow (Last 6 Months)</div>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Month</th>
+                        <th>Savings</th>
+                        <th>Repayments</th>
+                        <th>New Members</th>
+                        <th>Total Inflows</th>
+                        <th>Disbursements</th>
+                        <th>Net Cash Flow</th>
+                        <th>Cumulative</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cashFlow.cash_flow_data.map((cf: any) => (
+                        <tr key={cf.month}>
+                          <td><strong>{formatMonthLabel(cf.month)}</strong></td>
+                          <td>{fmt(cf.inflows.savings)}</td>
+                          <td>{fmt(cf.inflows.repayments)}</td>
+                          <td>{fmt(cf.inflows.new_members)}</td>
+                          <td style={{ fontWeight: 600, color: 'var(--success)' }}>{fmt(cf.inflows.total)}</td>
+                          <td style={{ color: 'var(--danger)' }}>{fmt(cf.outflows.total)}</td>
+                          <td style={{ fontWeight: 600, color: cf.net_cash_flow >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                            {fmt(cf.net_cash_flow)}
+                          </td>
+                          <td style={{ fontWeight: 600 }}>{fmt(cf.cumulative_cash_flow)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+        </>
+      )}
+
+      {/* Comparative Tab */}
+      {activeTab === 'comparative' && (
+        <>
+          <div className="card" style={{ marginBottom: '1rem' }}>
+            <button className="btn btn-primary" onClick={loadComparative} disabled={loading}>
+              {loading ? '⏳ Loading...' : '📊 Load Comparative Analysis'}
+            </button>
+          </div>
+
+          {comparative && (
+            <>
+              {/* Current Month Overview */}
+              <div className="card" style={{ marginBottom: '1.5rem', background: 'rgba(99,179,237,0.08)', border: '1px solid rgba(99,179,237,0.25)' }}>
+                <div style={{ fontWeight: 700, marginBottom: '0.75rem', color: 'var(--info)' }}>
+                  📅 Current Month: {formatMonthLabel(comparative.current_month.month)}
+                </div>
+                <div className="kpi-grid">
+                  {[
+                    { label: 'Savings Collected', value: fmt(comparative.current_month.metrics.savings_collected) },
+                    { label: 'Savings Count', value: comparative.current_month.metrics.savings_count },
+                    { label: 'Repayments Collected', value: fmt(comparative.current_month.metrics.repayments_collected) },
+                    { label: 'Loans Disbursed', value: fmt(comparative.current_month.metrics.loans_disbursed) },
+                  ].map(k => (
+                    <div key={k.label} className="kpi-card">
+                      <div className="kpi-label">{k.label}</div>
+                      <div className="kpi-value" style={{ fontSize: '1.1rem' }}>{k.value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Month-over-Month Comparison */}
+              <div className="card" style={{ marginBottom: '1.5rem' }}>
+                <div style={{ fontWeight: 700, marginBottom: '0.75rem' }}>
+                  📊 Month-over-Month (vs {formatMonthLabel(comparative.month_over_month.previous_month)})
+                </div>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Metric</th>
+                        <th>Previous Month</th>
+                        <th>Current Month</th>
+                        <th>Change</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        ['Savings Collected', comparative.month_over_month.previous_metrics.savings_collected, comparative.current_month.metrics.savings_collected, comparative.month_over_month.changes.savings_collected],
+                        ['Savings Count', comparative.month_over_month.previous_metrics.savings_count, comparative.current_month.metrics.savings_count, comparative.month_over_month.changes.savings_count],
+                        ['Repayments Collected', comparative.month_over_month.previous_metrics.repayments_collected, comparative.current_month.metrics.repayments_collected, comparative.month_over_month.changes.repayments_collected],
+                        ['Loans Disbursed', comparative.month_over_month.previous_metrics.loans_disbursed, comparative.current_month.metrics.loans_disbursed, comparative.month_over_month.changes.loans_disbursed],
+                      ].map(([metric, prev, curr, change]) => (
+                        <tr key={metric}>
+                          <td><strong>{metric}</strong></td>
+                          <td>{typeof prev === 'number' && prev > 100 ? fmt(prev) : prev}</td>
+                          <td>{typeof curr === 'number' && curr > 100 ? fmt(curr) : curr}</td>
+                          <td>
+                            <span style={{ 
+                              fontWeight: 600, 
+                              color: change > 0 ? 'var(--success)' : change < 0 ? 'var(--danger)' : 'var(--muted)' 
+                            }}>
+                              {change > 0 ? '↑' : change < 0 ? '↓' : '→'} {Math.abs(change)}%
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Year-over-Year Comparison */}
+              <div className="card">
+                <div style={{ fontWeight: 700, marginBottom: '0.75rem' }}>
+                  📈 Year-over-Year (vs {formatMonthLabel(comparative.year_over_year.year_ago_month)})
+                </div>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Metric</th>
+                        <th>Year Ago</th>
+                        <th>Current</th>
+                        <th>Change</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        ['Savings Collected', comparative.year_over_year.year_ago_metrics.savings_collected, comparative.current_month.metrics.savings_collected, comparative.year_over_year.changes.savings_collected],
+                        ['Savings Count', comparative.year_over_year.year_ago_metrics.savings_count, comparative.current_month.metrics.savings_count, comparative.year_over_year.changes.savings_count],
+                        ['Repayments Collected', comparative.year_over_year.year_ago_metrics.repayments_collected, comparative.current_month.metrics.repayments_collected, comparative.year_over_year.changes.repayments_collected],
+                        ['Loans Disbursed', comparative.year_over_year.year_ago_metrics.loans_disbursed, comparative.current_month.metrics.loans_disbursed, comparative.year_over_year.changes.loans_disbursed],
+                      ].map(([metric, prev, curr, change]) => (
+                        <tr key={metric}>
+                          <td><strong>{metric}</strong></td>
+                          <td>{typeof prev === 'number' && prev > 100 ? fmt(prev) : prev}</td>
+                          <td>{typeof curr === 'number' && curr > 100 ? fmt(curr) : curr}</td>
+                          <td>
+                            <span style={{ 
+                              fontWeight: 600, 
+                              color: change > 0 ? 'var(--success)' : change < 0 ? 'var(--danger)' : 'var(--muted)' 
+                            }}>
+                              {change > 0 ? '↑' : change < 0 ? '↓' : '→'} {Math.abs(change)}%
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
         </>
       )}
     </>
@@ -1390,10 +1855,20 @@ function NotificationsSection({ toast }: { toast: any }) {
   const [viewItem, setViewItem]   = useState<any>(null); // item being reviewed
   const [viewType, setViewType]   = useState<'saving' | 'repayment' | null>(null);
   const [penaltyOverride, setPenaltyOverride] = useState('');
+  const [smsStatus, setSmsStatus] = useState<any>(null);
+  const [sending, setSending]     = useState(false);
+  const [testPhone, setTestPhone] = useState('');
+  const [testMessage, setTestMessage] = useState('');
 
   function load() {
     setLoading(true);
-    api.get('/settings/due-alerts').then(setAlerts).catch((e: any) => toast(e.message, 'danger')).finally(() => setLoading(false));
+    Promise.all([
+      api.get('/settings/due-alerts'),
+      api.get('/notifications/status'),
+    ]).then(([a, s]) => {
+      setAlerts(a);
+      setSmsStatus(s);
+    }).catch((e: any) => toast(e.message, 'danger')).finally(() => setLoading(false));
   }
   useEffect(load, []);
 
@@ -1429,6 +1904,68 @@ function NotificationsSection({ toast }: { toast: any }) {
   async function confirmRepayment(id: string) {
     try { const r = await api.patch(`/repayments/${id}/confirm`, {}); toast(r.completed ? '🎉 Loan fully repaid!' : '✅ Repayment confirmed', 'success'); load(); }
     catch (e: any) { toast(e.message, 'danger'); }
+  }
+
+  async function sendSavingsReminders() {
+    if (!confirm('Send SMS reminders to all members with unpaid savings?')) return;
+    setSending(true);
+    try {
+      const result = await api.post('/notifications/send-savings-reminders', { 
+        month: currentMonth(),
+        daysBeforeDue: 3 
+      });
+      toast(`📱 Sent ${result.sent} SMS reminder(s)`, 'success');
+    } catch (e: any) {
+      toast(e.message, 'danger');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function sendOverdueAlerts() {
+    if (!confirm('Send SMS alerts to all members with overdue payments?')) return;
+    setSending(true);
+    try {
+      const result = await api.post('/notifications/send-overdue-alerts', {});
+      toast(`📱 Sent ${result.sent} overdue alert(s)`, 'success');
+    } catch (e: any) {
+      toast(e.message, 'danger');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function sendRepaymentReminders() {
+    if (!confirm('Send SMS reminders for due loan repayments?')) return;
+    setSending(true);
+    try {
+      const result = await api.post('/notifications/send-repayment-reminders', { 
+        month: currentMonth() 
+      });
+      toast(`📱 Sent ${result.sent} repayment reminder(s)`, 'success');
+    } catch (e: any) {
+      toast(e.message, 'danger');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function sendTestSMS() {
+    if (!testPhone || !testMessage) {
+      toast('Enter phone number and message', 'warning');
+      return;
+    }
+    setSending(true);
+    try {
+      await api.post('/notifications/test', { phone: testPhone, message: testMessage });
+      toast('✅ Test SMS sent successfully', 'success');
+      setTestPhone('');
+      setTestMessage('');
+    } catch (e: any) {
+      toast(e.message, 'danger');
+    } finally {
+      setSending(false);
+    }
   }
 
   if (loading) return <p style={{ color: 'var(--muted)' }}>Loading…</p>;
@@ -1681,6 +2218,101 @@ function NotificationsSection({ toast }: { toast: any }) {
           </>
         )}
       </Modal>
+
+      {/* ── SMS Notifications Section ── */}
+      {smsStatus && (
+        <div className="card" style={{ marginTop: '2rem', border: smsStatus.enabled ? '1px solid rgba(16,185,129,0.35)' : '1px solid rgba(156,163,175,0.35)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '0.25rem' }}>
+                📱 SMS Notifications
+              </div>
+              <div style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>
+                {smsStatus.message}
+              </div>
+            </div>
+            <span className={`badge badge-${smsStatus.enabled ? 'success' : 'muted'}`}>
+              {smsStatus.enabled ? '✅ ENABLED' : '❌ DISABLED'}
+            </span>
+          </div>
+
+          {smsStatus.enabled ? (
+            <>
+              {/* Quick Actions */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                <button 
+                  className="btn btn-primary btn-sm" 
+                  onClick={sendSavingsReminders}
+                  disabled={sending || !alerts?.unpaid_savings?.length}
+                  title="Send reminders to members with unpaid savings"
+                >
+                  {sending ? '⏳ Sending...' : `💰 Savings Reminders (${alerts?.unpaid_savings?.length || 0})`}
+                </button>
+                <button 
+                  className="btn btn-danger btn-sm" 
+                  onClick={sendOverdueAlerts}
+                  disabled={sending}
+                  title="Send alerts for overdue payments"
+                >
+                  {sending ? '⏳ Sending...' : '🔴 Overdue Alerts'}
+                </button>
+                <button 
+                  className="btn btn-warning btn-sm" 
+                  onClick={sendRepaymentReminders}
+                  disabled={sending}
+                  title="Send loan repayment reminders"
+                >
+                  {sending ? '⏳ Sending...' : '🏦 Repayment Reminders'}
+                </button>
+              </div>
+
+              {/* Test SMS */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '1rem' }}>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: '0.75rem' }}>🧪 Test SMS</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr auto', gap: '0.75rem', alignItems: 'end' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ fontSize: '0.78rem' }}>Phone Number</label>
+                    <input 
+                      type="tel" 
+                      value={testPhone} 
+                      onChange={e => setTestPhone(e.target.value)}
+                      placeholder="+251911234567"
+                      style={{ fontSize: '0.85rem' }}
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ fontSize: '0.78rem' }}>Message</label>
+                    <input 
+                      type="text" 
+                      value={testMessage} 
+                      onChange={e => setTestMessage(e.target.value)}
+                      placeholder="Test message from WAZEMA"
+                      style={{ fontSize: '0.85rem' }}
+                    />
+                  </div>
+                  <button 
+                    className="btn btn-ghost btn-sm" 
+                    onClick={sendTestSMS}
+                    disabled={sending || !testPhone || !testMessage}
+                  >
+                    {sending ? '⏳ Sending...' : '📤 Send Test'}
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="alert alert-info">
+              <span>ℹ️</span>
+              <div>
+                <strong>SMS notifications are disabled</strong>
+                <div style={{ fontSize: '0.82rem', marginTop: '0.25rem' }}>
+                  To enable SMS notifications, set <code style={{ background: 'rgba(255,255,255,0.1)', padding: '0.1rem 0.3rem', borderRadius: '3px' }}>SMS_ENABLED=true</code> in your environment variables and configure an SMS provider (Africa's Talking, Twilio, or HTTP Gateway).
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </>
   );
 }
