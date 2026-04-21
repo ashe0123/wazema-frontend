@@ -725,6 +725,8 @@ function SavingsSection({ toast }: { toast: any }) {
   const [members, setMembers] = useState<any[]>([]);
   const [rec, setRec] = useState({ member_id: '', month: currentMonth(), amount: '', paid_date: new Date().toISOString().split('T')[0], status: 'paid', penalty: '0' });
   const [saving, setSaving] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkProcessing, setBulkProcessing] = useState(false);
 
   // Include future months for advance payments (6 months ahead)
   const monthOpts = buildMonthOptions(24, 6);
@@ -737,6 +739,7 @@ function SavingsSection({ toast }: { toast: any }) {
     ]).then(([s, p]) => {
       setSummary(s);
       setPending(Array.isArray(p) ? p : []);
+      setSelectedIds(new Set()); // Clear selection on reload
     }).catch((e: any) => toast(e.message, 'danger')).finally(() => setLoading(false));
   }
   useEffect(load, [month]);
@@ -764,12 +767,63 @@ function SavingsSection({ toast }: { toast: any }) {
   }
 
   async function bulkConfirm() {
-    if (!confirm(`Confirm all ${pending.length} pending savings as PAID?`)) return;
-    let done = 0;
-    for (const s of pending) {
-      try { await api.patch(`/savings/${s.id}/confirm`, { status: 'paid', penalty: 0 }); done++; } catch {}
+    if (selectedIds.size === 0) {
+      toast('No payments selected', 'warning');
+      return;
     }
-    toast(`Confirmed ${done} savings`, 'success'); load();
+    if (!confirm(`Confirm ${selectedIds.size} selected payment(s) as PAID?`)) return;
+    
+    setBulkProcessing(true);
+    try {
+      const result = await api.post('/savings/bulk-confirm', { 
+        ids: Array.from(selectedIds),
+        status: 'paid'
+      });
+      toast(`✅ ${result.confirmed} of ${result.total} payment(s) confirmed`, 'success');
+      load();
+    } catch (e: any) {
+      toast(e.message, 'danger');
+    } finally {
+      setBulkProcessing(false);
+    }
+  }
+
+  async function bulkConfirmAll() {
+    if (pending.length === 0) return;
+    if (!confirm(`Confirm ALL ${pending.length} pending payment(s) as PAID?`)) return;
+    
+    setBulkProcessing(true);
+    try {
+      const allIds = pending.map(s => s.id);
+      const result = await api.post('/savings/bulk-confirm', { 
+        ids: allIds,
+        status: 'paid'
+      });
+      toast(`✅ ${result.confirmed} of ${result.total} payment(s) confirmed`, 'success');
+      load();
+    } catch (e: any) {
+      toast(e.message, 'danger');
+    } finally {
+      setBulkProcessing(false);
+    }
+  }
+
+  function toggleSelection(id: string) {
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setSelectedIds(newSet);
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === pending.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(pending.map(s => s.id)));
+    }
   }
 
   return (
@@ -785,7 +839,16 @@ function SavingsSection({ toast }: { toast: any }) {
         </select>
         <button className="btn btn-primary btn-sm" onClick={() => setRecModal(true)}>+ Record Saving</button>
         {pending.length > 0 && (
-          <button className="btn btn-success btn-sm" onClick={bulkConfirm}>✅ Bulk Confirm ({pending.length})</button>
+          <>
+            {selectedIds.size > 0 && (
+              <button className="btn btn-success btn-sm" onClick={bulkConfirm} disabled={bulkProcessing}>
+                ✅ Approve Selected ({selectedIds.size})
+              </button>
+            )}
+            <button className="btn btn-ghost btn-sm" onClick={bulkConfirmAll} disabled={bulkProcessing}>
+              ✅ Approve All ({pending.length})
+            </button>
+          </>
         )}
       </div>
 
@@ -798,12 +861,32 @@ function SavingsSection({ toast }: { toast: any }) {
           </div>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Member</th><th>Month</th><th>Amount</th><th>Date</th><th>Bank Paid To</th><th>Receipt</th><th>Actions</th></tr></thead>
+              <thead>
+                <tr>
+                  <th style={{ width: '40px' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={selectedIds.size === pending.length && pending.length > 0}
+                      onChange={toggleSelectAll}
+                      style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                    />
+                  </th>
+                  <th>Member</th><th>Month</th><th>Amount</th><th>Date</th><th>Bank Paid To</th><th>Receipt</th><th>Actions</th>
+                </tr>
+              </thead>
               <tbody>
                 {pending.map((s: any) => {
                   const isAdv = s.month > currentMonth();
                   return (
                     <tr key={s.id}>
+                      <td>
+                        <input 
+                          type="checkbox" 
+                          checked={selectedIds.has(s.id)}
+                          onChange={() => toggleSelection(s.id)}
+                          style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                        />
+                      </td>
                       <td>
                         <div style={{ fontWeight: 600 }}>{s.member_name}</div>
                         <code style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{s.member_id}</code>
@@ -1077,10 +1160,15 @@ function RepaymentsSection({ toast }: { toast: any }) {
   const [month, setMonth] = useState(currentMonth());
   const [repayments, setRepayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkProcessing, setBulkProcessing] = useState(false);
 
   function load() {
     setLoading(true);
-    api.get(`/repayments?month=${month}`).then((d: any) => setRepayments(Array.isArray(d) ? d : [])).catch((e: any) => toast(e.message, 'danger')).finally(() => setLoading(false));
+    api.get(`/repayments?month=${month}`).then((d: any) => {
+      setRepayments(Array.isArray(d) ? d : []);
+      setSelectedIds(new Set()); // Clear selection on reload
+    }).catch((e: any) => toast(e.message, 'danger')).finally(() => setLoading(false));
   }
   useEffect(load, [month]);
 
@@ -1089,22 +1177,128 @@ function RepaymentsSection({ toast }: { toast: any }) {
     catch (e: any) { toast(e.message, 'danger'); }
   }
 
+  async function bulkConfirm() {
+    if (selectedIds.size === 0) {
+      toast('No repayments selected', 'warning');
+      return;
+    }
+    if (!confirm(`Confirm ${selectedIds.size} selected repayment(s)?`)) return;
+    
+    setBulkProcessing(true);
+    try {
+      const result = await api.post('/repayments/bulk-confirm', { 
+        ids: Array.from(selectedIds)
+      });
+      toast(`✅ ${result.confirmed} of ${result.total} repayment(s) confirmed`, 'success');
+      if (result.loans_affected > 0) {
+        toast(`📊 ${result.loans_affected} loan(s) updated`, 'info');
+      }
+      load();
+    } catch (e: any) {
+      toast(e.message, 'danger');
+    } finally {
+      setBulkProcessing(false);
+    }
+  }
+
+  async function bulkConfirmAll() {
+    const pending = repayments.filter(r => r.status === 'pending_review');
+    if (pending.length === 0) return;
+    if (!confirm(`Confirm ALL ${pending.length} pending repayment(s)?`)) return;
+    
+    setBulkProcessing(true);
+    try {
+      const allIds = pending.map(r => r.id);
+      const result = await api.post('/repayments/bulk-confirm', { 
+        ids: allIds
+      });
+      toast(`✅ ${result.confirmed} of ${result.total} repayment(s) confirmed`, 'success');
+      load();
+    } catch (e: any) {
+      toast(e.message, 'danger');
+    } finally {
+      setBulkProcessing(false);
+    }
+  }
+
+  function toggleSelection(id: string) {
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setSelectedIds(newSet);
+  }
+
+  function toggleSelectAll() {
+    const pending = repayments.filter(r => r.status === 'pending_review');
+    if (selectedIds.size === pending.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(pending.map(r => r.id)));
+    }
+  }
+
   const monthOpts = buildMonthOptions(12, 6);
+  const pendingCount = repayments.filter(r => r.status === 'pending_review').length;
 
   return (
     <>
       <div className="page-title">Repayments</div>
       <div className="page-sub">Loan repayment records</div>
-      <select value={month} onChange={e => setMonth(e.target.value)}
-        style={{ background:'rgba(255,255,255,0.05)', border:'1px solid var(--border2)', borderRadius:'var(--radius-sm)', color:'var(--text)', padding:'0.5rem 0.75rem', fontSize:'0.85rem', marginBottom:'1rem' }}>
-        {monthOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
+      
+      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <select value={month} onChange={e => setMonth(e.target.value)}
+          style={{ background:'rgba(255,255,255,0.05)', border:'1px solid var(--border2)', borderRadius:'var(--radius-sm)', color:'var(--text)', padding:'0.5rem 0.75rem', fontSize:'0.85rem' }}>
+          {monthOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        {pendingCount > 0 && (
+          <>
+            {selectedIds.size > 0 && (
+              <button className="btn btn-success btn-sm" onClick={bulkConfirm} disabled={bulkProcessing}>
+                ✅ Approve Selected ({selectedIds.size})
+              </button>
+            )}
+            <button className="btn btn-ghost btn-sm" onClick={bulkConfirmAll} disabled={bulkProcessing}>
+              ✅ Approve All Pending ({pendingCount})
+            </button>
+          </>
+        )}
+      </div>
+
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Member</th><th>Loan</th><th>Month</th><th>Amount</th><th>Status</th><th>Paid Date</th><th>Penalty</th><th>Bank</th><th>Actions</th></tr></thead>
+          <thead>
+            <tr>
+              {pendingCount > 0 && (
+                <th style={{ width: '40px' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={selectedIds.size === pendingCount && pendingCount > 0}
+                    onChange={toggleSelectAll}
+                    style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                  />
+                </th>
+              )}
+              <th>Member</th><th>Loan</th><th>Month</th><th>Amount</th><th>Status</th><th>Paid Date</th><th>Penalty</th><th>Bank</th><th>Actions</th>
+            </tr>
+          </thead>
           <tbody>
             {loading ? <Spinner /> : repayments.length === 0 ? <Empty /> : repayments.map((r: any) => (
               <tr key={r.id}>
+                {pendingCount > 0 && (
+                  <td>
+                    {r.status === 'pending_review' ? (
+                      <input 
+                        type="checkbox" 
+                        checked={selectedIds.has(r.id)}
+                        onChange={() => toggleSelection(r.id)}
+                        style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                      />
+                    ) : null}
+                  </td>
+                )}
                 <td>{r.member_name || r.member_id}</td>
                 <td><code style={{fontSize:'0.75rem'}}>{r.loan_id}</code></td>
                 <td>{formatMonthLabel(r.month)}</td>
