@@ -15,6 +15,7 @@ function LoginForm() {
   const [pw, setPw]     = useState('');
   const [err, setErr]   = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // forgot — member
   const [fpId, setFpId]       = useState('');
@@ -22,6 +23,7 @@ function LoginForm() {
   const [fpToken, setFpToken] = useState('');
   const [fpNewPw, setFpNewPw] = useState('');
   const [fpStep, setFpStep]   = useState<'request' | 'reset'>('request');
+  const [showFpPassword, setShowFpPassword] = useState(false);
 
   // forgot — admin
   const [afUsername, setAfUsername] = useState('');
@@ -29,6 +31,8 @@ function LoginForm() {
   const [afToken, setAfToken]       = useState('');
   const [afNewPw, setAfNewPw]       = useState('');
   const [afStep, setAfStep]         = useState<'request' | 'reset'>('request');
+  const [showAfSecret, setShowAfSecret] = useState(false);
+  const [showAfPassword, setShowAfPassword] = useState(false);
 
   useEffect(() => {
     const u = getUser();
@@ -157,9 +161,31 @@ function LoginForm() {
               </div>
               <div className="form-group">
                 <label>Password</label>
-                <input type="password" value={pw} onChange={e => setPw(e.target.value)}
-                  placeholder="Enter your password"
-                  onKeyDown={e => e.key === 'Enter' && doLogin()} />
+                <div style={{ position: 'relative' }}>
+                  <input type={showPassword ? "text" : "password"} value={pw} onChange={e => setPw(e.target.value)}
+                    placeholder="Enter your password"
+                    onKeyDown={e => e.key === 'Enter' && doLogin()}
+                    style={{ paddingRight: '2.5rem' }} />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '0.75rem',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '1.2rem',
+                      padding: '0.25rem',
+                      color: 'var(--muted)',
+                    }}
+                    title={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? '👁️' : '👁️‍🗨️'}
+                  </button>
+                </div>
               </div>
               {err && <div className="error-msg">{err}</div>}
               <button className="btn btn-primary btn-full btn-lg" onClick={doLogin} disabled={loading}>
@@ -240,7 +266,30 @@ function LoginForm() {
                   </div>
                   <div className="form-group">
                     <label>New Password * (min 8 characters)</label>
-                    <input type="password" value={fpNewPw} onChange={e => setFpNewPw(e.target.value)} placeholder="New password" />
+                    <div style={{ position: 'relative' }}>
+                      <input type={showFpPassword ? "text" : "password"} value={fpNewPw} onChange={e => setFpNewPw(e.target.value)} 
+                        placeholder="New password"
+                        style={{ paddingRight: '2.5rem' }} />
+                      <button
+                        type="button"
+                        onClick={() => setShowFpPassword(!showFpPassword)}
+                        style={{
+                          position: 'absolute',
+                          right: '0.75rem',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: '1.2rem',
+                          padding: '0.25rem',
+                          color: 'var(--muted)',
+                        }}
+                        title={showFpPassword ? "Hide password" : "Show password"}
+                      >
+                        {showFpPassword ? '👁️' : '👁️‍🗨️'}
+                      </button>
+                    </div>
                   </div>
                   {err && <div className="error-msg">{err}</div>}
                   <button className="btn btn-success btn-full" onClick={doReset} disabled={loading}>
@@ -284,9 +333,31 @@ function LoginForm() {
                   </div>
                   <div className="form-group">
                     <label>Secret Reset Key *</label>
-                    <input type="password" value={afSecret} onChange={e => setAfSecret(e.target.value)}
-                      placeholder="Enter your secret key"
-                      onKeyDown={e => e.key === 'Enter' && doAdminForgot()} />
+                    <div style={{ position: 'relative' }}>
+                      <input type={showAfSecret ? "text" : "password"} value={afSecret} onChange={e => setAfSecret(e.target.value)}
+                        placeholder="Enter your secret key"
+                        onKeyDown={e => e.key === 'Enter' && doAdminForgot()}
+                        style={{ paddingRight: '2.5rem' }} />
+                      <button
+                        type="button"
+                        onClick={() => setShowAfSecret(!showAfSecret)}
+                        style={{
+                          position: 'absolute',
+                          right: '0.75rem',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: '1.2rem',
+                          padding: '0.25rem',
+                          color: 'var(--muted)',
+                        }}
+                        title={showAfSecret ? "Hide secret" : "Show secret"}
+                      >
+                        {showAfSecret ? '👁️' : '👁️‍🗨️'}
+                      </button>
+                    </div>
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.75rem' }}>
                     The secret key is set in your server environment (ADMIN_RESET_SECRET).
@@ -324,9 +395,31 @@ function LoginForm() {
                   </div>
                   <div className="form-group">
                     <label>New Password * (min 8 characters)</label>
-                    <input type="password" value={afNewPw} onChange={e => setAfNewPw(e.target.value)}
-                      placeholder="New admin password"
-                      onKeyDown={e => e.key === 'Enter' && doAdminReset()} />
+                    <div style={{ position: 'relative' }}>
+                      <input type={showAfPassword ? "text" : "password"} value={afNewPw} onChange={e => setAfNewPw(e.target.value)}
+                        placeholder="New admin password"
+                        onKeyDown={e => e.key === 'Enter' && doAdminReset()}
+                        style={{ paddingRight: '2.5rem' }} />
+                      <button
+                        type="button"
+                        onClick={() => setShowAfPassword(!showAfPassword)}
+                        style={{
+                          position: 'absolute',
+                          right: '0.75rem',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: '1.2rem',
+                          padding: '0.25rem',
+                          color: 'var(--muted)',
+                        }}
+                        title={showAfPassword ? "Hide password" : "Show password"}
+                      >
+                        {showAfPassword ? '👁️' : '👁️‍🗨️'}
+                      </button>
+                    </div>
                   </div>
                   {err && <div className="error-msg">{err}</div>}
                   <button className="btn btn-success btn-full" onClick={doAdminReset} disabled={loading}>
